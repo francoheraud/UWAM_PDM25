@@ -1,0 +1,5 @@
+../Core/Src/main.c:61:9:pid_Calc	16	static,ignoring_inline_asm
+../Core/Src/main.c:79:9:checksum_calc	16	dynamic
+../Core/Src/main.c:165:6:SystemClock_Config	128	static,ignoring_inline_asm
+../Core/Src/main.c:107:5:main	56	static,ignoring_inline_asm
+../Core/Src/main.c:311:6:Error_Handler	0	static,ignoring_inline_asm
