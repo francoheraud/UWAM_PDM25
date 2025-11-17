@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include <stdbool.h>
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -63,14 +64,71 @@ static void CAN_SendTestFrame(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-//CAN SHIT HERE
-CAN_TxHeaderTypeDef TxHeader = {0};//Setting for code in User code 4
+
+CAN_TxHeaderTypeDef TxHeader;
+CAN_RxHeaderTypeDef RxHeader;
+
 uint8_t TxDataCAN[8];
-CAN_RxHeaderTypeDef RxHeader = {0};//Setting for code in User code 4
 uint8_t RxDataCAN[8];
-	uint32_t mailbox;
+uint32_t mailbox;
+
+bool has_tx_failed = false;
 
 
+static void CAN_SendTestFrame(void)
+{
+	//static uint8_t counter = 0;
+	uint8_t data[8] = {0, 0, 0, 0xBE, 0, 0, 0, 0};
+	uint32_t mbox;
+
+	TxHeader.StdId 	= 0x030;
+	TxHeader.IDE 	= CAN_ID_STD;
+	TxHeader.RTR 	= CAN_RTR_DATA;
+	TxHeader.DLC 	= 8;
+
+	//data[0] = counter++; //changes on each send
+	if (HAL_CAN_AddTxMessage(&hcan, &TxHeader, data, &mbox) != HAL_OK)
+		has_tx_failed = true;
+}
+
+void adjust_fan(uint8_t data)
+{
+	uint16_t CCR_Width;
+	uint32_t ARR_Value = (TIM3->ARR) * data;
+	CCR_Width = ARR_Value / 200u;
+
+	TIM3->CCR3 = CCR_Width;
+	TIM3->CR1 |= TIM_CR1_CEN;
+	TIM3->CCER |= TIM_CCER_CC3E;
+}
+
+/*
+void can_handler(uint8_t* message)
+{
+	uint8_t bytes_to_read = message[3]; //< nth bit determines whether or not to read nth byte
+	uint8_t duty_for_adjust = (uint16_t)message * 200u / 255u;
+    adjust_fan(duty_for_adjust);
+}
+*/
+
+
+// re implemented!!
+/*
+void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *h)
+{
+    uint8_t d[8];
+    if (HAL_CAN_GetRxMessage(h, CAN_RX_FIFO0, &RxHeader, d) != HAL_OK)
+        return;
+
+    if (RxHeader.StdId == PDM_CONTROL_ID) {
+        HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
+    }
+
+    uint8_t duty_255        = d[3];
+    uint8_t duty_for_adjust = (uint16_t)duty_255 * 200 / 255;
+    adjust_fan(duty_for_adjust);
+}
+*/
 
 
 //LIN CODE SHIT HERE
@@ -150,40 +208,32 @@ int main(void)
   MX_CAN_Init();
   MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
-  //CANTHISDICKFITINURMOUTH
+
   HAL_CAN_Start(&hcan);
-
-  //PDM Channel 6 PWM
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_3);   // PB0 (Enable6) now outputs PWM
-
-  //Calling Adjust_Fan Function For Testing!!!
   adjust_fan(200);
-  //activated the notification
-  HAL_CAN_ActivateNotification(&hcan, CAN_IT_RX_FIFO0_MSG_PENDING | CAN_IT_BUSOFF | CAN_IT_ERROR_WARNING | CAN_IT_ERROR_PASSIVE);
+  HAL_CAN_ActivateNotification(&hcan,
+		  //CAN_IT_RX_FIFO0_MSG_PENDING | // (pure polling for now)
+		  CAN_IT_BUSOFF |
+		  CAN_IT_ERROR_WARNING |
+		  CAN_IT_ERROR_PASSIVE);
+
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  //CAN Checking Mailbox
-
-	 if(HAL_CAN_GetRxFifoFillLevel(&hcan, CAN_RX_FIFO0) != 0)
+	  if (HAL_CAN_GetRxFifoFillLevel(&hcan, CAN_RX_FIFO0) != 0)
 	 {
-		 if(HAL_CAN_GetRxMessage(&hcan, CAN_RX_FIFO0, &RxHeader, RxDataCAN) != HAL_OK)
+		 if (HAL_CAN_GetRxMessage(&hcan, CAN_RX_FIFO0, &RxHeader, RxDataCAN) == HAL_OK)
 		 {
-			 Error_Handler();
+			 if (RxHeader.StdId == PDM_CONTROL_ID)
+				 HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
 		 }
-		if(RxHeader.StdId == PDM_CONTROL_ID){
-
-
-			//can_handler(RxDataCAN);
-			HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
-
-		 }
-
 	 }
-	  //CAN_SendTestFrame(); //self-tx every 100ms *added 10:44
+	  CAN_SendTestFrame(); //self-tx every 100ms *added 10:44
 	  HAL_Delay(100);
 
     /* USER CODE END WHILE */
@@ -276,9 +326,9 @@ static void MX_CAN_Init(void)
   hcan.Init.TimeSeg1 = CAN_BS1_2TQ;
   hcan.Init.TimeSeg2 = CAN_BS2_1TQ;
   hcan.Init.TimeTriggeredMode = DISABLE;
-  hcan.Init.AutoBusOff = DISABLE;
+  hcan.Init.AutoBusOff = ENABLE;
   hcan.Init.AutoWakeUp = DISABLE;
-  hcan.Init.AutoRetransmission = DISABLE;
+  hcan.Init.AutoRetransmission = ENABLE;
   hcan.Init.ReceiveFifoLocked = DISABLE;
   hcan.Init.TransmitFifoPriority = DISABLE;
   if (HAL_CAN_Init(&hcan) != HAL_OK)
@@ -400,8 +450,8 @@ static void MX_USART3_UART_Init(void)
 static void MX_GPIO_Init(void)
 {
   GPIO_InitTypeDef GPIO_InitStruct = {0};
-/* USER CODE BEGIN MX_GPIO_Init_1 */
-/* USER CODE END MX_GPIO_Init_1 */
+  /* USER CODE BEGIN MX_GPIO_Init_1 */
+  /* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOC_CLK_ENABLE();
@@ -449,28 +499,14 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(ENABLE5_GPIO_Port, &GPIO_InitStruct);
 
-/* USER CODE BEGIN MX_GPIO_Init_2 */
-/* USER CODE END MX_GPIO_Init_2 */
+  /* USER CODE BEGIN MX_GPIO_Init_2 */
+  /* USER CODE END MX_GPIO_Init_2 */
 }
 
 /* USER CODE BEGIN 4 */
 //CAN
 
-static void CAN_SendTestFrame(void)
-{
-	//static uint8_t counter = 0; //Counter set at *4:24
-	//Why dont we need CAN_RxHeader TypeDef TxHeader = {0} *here? like RX header is below
-	uint8_t data[8] = {0, 0, 0, 0xBE, 0, 0, 0, 0};
 
-	TxHeader.StdId = 0x030; //Do i need to change to pdm id  //all this shit is configured in CAN_Init_2 in 23 firmware so idk the difference.
-	TxHeader.IDE = CAN_ID_STD;
-	TxHeader.RTR = CAN_RTR_DATA;
-	TxHeader.DLC = 8;
-
-	//data[0] = counter++; //changes on each send
-
-	(void)HAL_CAN_AddTxMessage(&hcan, &TxHeader, data, &mailbox);
-}
 
 /*
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *h)
@@ -485,49 +521,18 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *h)
 
 */
 /*
-void can_handler(uint8_t* message)
-{
-
-
-	uint8_t bytes_to_read = message[3]; //< nth bit determines whether or not to read nth byte
-
-
-	uint8_t duty_for_adjust = (uint16_t)message * 200u / 255u;
-
-        adjust_fan(duty_for_adjust);
-}
-*/
-
-
-
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *h)
 {
     uint8_t d[8];
     if (HAL_CAN_GetRxMessage(h, CAN_RX_FIFO0, &RxHeader, d) == HAL_OK)
     {
-
-
     	uint8_t duty_255 = d[3];
-
     	uint8_t duty_for_adjust = (uint16_t)duty_255 * 200u / 255u;
-
-            adjust_fan(duty_for_adjust);
-
-
-
+        adjust_fan(duty_for_adjust);
     }
 }
-//FAN Control
-void adjust_fan(uint8_t data)
-{
- uint16_t CCR_Width;
- uint32_t ARR_Value = (TIM3->ARR) * data;
- CCR_Width = ARR_Value/200;
+*/
 
- TIM3->CCR3 = CCR_Width;
- TIM3->CR1 |= TIM_CR1_CEN;
- TIM3->CCER |= TIM_CCER_CC3E;
-}
 /* USER CODE END 4 */
 
 /**
@@ -544,8 +549,7 @@ void Error_Handler(void)
   }
   /* USER CODE END Error_Handler_Debug */
 }
-
-#ifdef  USE_FULL_ASSERT
+#ifdef USE_FULL_ASSERT
 /**
   * @brief  Reports the name of the source file and the source line number
   *         where the assert_param error has occurred.
