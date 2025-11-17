@@ -6,7 +6,7 @@ __weak void can_init_handler(void) {}
 HAL_StatusTypeDef can_init(can_drv_t *can, CAN_HandleTypeDef *hcan) {
   if (!hcan)
     return HAL_ERROR;
-  can->hcan = &hcan;
+  can->hcan = hcan;
   return HAL_CAN_Start(can->hcan);
 }
 
