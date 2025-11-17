@@ -1,0 +1,5 @@
+../Core/Src/pdm_logic.c:3:6:adjust_fanpwm_callback	24	static
+../Core/Src/pdm_logic.c:9:6:adjust_fan	24	static
+../Core/Src/pdm_logic.c:19:13:pid_calc_error_handler	4	static
+../Core/Src/pdm_logic.c:23:9:pid_calc	32	static
+../Core/Src/pdm_logic.c:40:9:checksum_calc	48	dynamic

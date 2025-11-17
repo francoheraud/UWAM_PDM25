@@ -18,10 +18,13 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include <stdbool.h>
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+
+#include "can_driver.h"
+#include "lin_driver.h"
+#include "pdm_logic.h"
 
 /* USER CODE END Includes */
 
@@ -49,6 +52,7 @@ UART_HandleTypeDef huart3;
 
 /* USER CODE BEGIN PV */
 
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -58,15 +62,12 @@ static void MX_USART3_UART_Init(void);
 static void MX_CAN_Init(void);
 static void MX_TIM3_Init(void);
 /* USER CODE BEGIN PFP */
-void adjust_fan(uint8_t data);
-static void CAN_SendTestFrame(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-CAN_TxHeaderTypeDef TxHeader;
-CAN_RxHeaderTypeDef RxHeader;
+can_drv_t can;
 
 uint8_t TxDataCAN[8];
 uint8_t RxDataCAN[8];
@@ -75,32 +76,8 @@ uint32_t mailbox;
 bool has_tx_failed = false;
 
 
-static void CAN_SendTestFrame(void)
-{
-	//static uint8_t counter = 0;
-	uint8_t data[8] = {0, 0, 0, 0xBE, 0, 0, 0, 0};
-	uint32_t mbox;
 
-	TxHeader.StdId 	= 0x030;
-	TxHeader.IDE 	= CAN_ID_STD;
-	TxHeader.RTR 	= CAN_RTR_DATA;
-	TxHeader.DLC 	= 8;
 
-	//data[0] = counter++; //changes on each send
-	if (HAL_CAN_AddTxMessage(&hcan, &TxHeader, data, &mbox) != HAL_OK)
-		has_tx_failed = true;
-}
-
-void adjust_fan(uint8_t data)
-{
-	uint16_t CCR_Width;
-	uint32_t ARR_Value = (TIM3->ARR) * data;
-	CCR_Width = ARR_Value / 200u;
-
-	TIM3->CCR3 = CCR_Width;
-	TIM3->CR1 |= TIM_CR1_CEN;
-	TIM3->CCER |= TIM_CCER_CC3E;
-}
 
 /*
 void can_handler(uint8_t* message)
@@ -131,49 +108,7 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *h)
 */
 
 
-//LIN CODE SHIT HERE
-//uint8_t TxData[20]; //define tx buffer
-//
-//uint8_t pid_Calc (uint8_t ID) //function pid_calc takes ID as parameter
-//{
-// 	if (ID>0x3F) Error_Handler(); // ensures range of ID < 63
-//	uint8_t IDBuf[6];             // declares array of 6 unsigned 8 bit integers named IDBuf
-//	for (int i=0; i<6; i++)     // loop from 0<i<5, repeating for each value of i
-//	{
-//		IDBuf[i] = (ID>>i)&0x01;    // bitemasks the LSB and then puts that in the array, right shifts by 1 each time (see below toggle)
-//	}
-//	// Parity bit calculations
-//	uint8_t P0 = (IDBuf[0] ^ IDBuf[1] ^ IDBuf[2] ^ IDBuf[4])&0x01; // as per datasheet computes XOR followed by bitmask for 'safety?'
-//	uint8_t P1 = (~(IDBuf[1] ^ IDBuf[3] ^ IDBuf[4] ^ IDBuf[5]))&0x01; // pre sure the brackets here are in the wrong order coz this is the situation where you do need the bitmask but it wont work like this but this is what the guy wrote so idk
-//
-//	// chuck parity bits in the ID variable (in the buffer???)
-//	ID = ID | (P0<<6) | (P1<<7); // ohh pre sure since the parity bits are 8 bit unsigned integers then you just OR all that shit together and it gives you a nice PID
-//	return ID;
 
-	//Checksum
-//}
-//uint8_t checksum_calc (uint8_t PID, uint8_t *data, uint8_t size) // parameters PID, pointer to the data and size
-//// ok so pre sure this is creating a buffer which is literally the LIN message
-//// and then it adds all that shit together and subracts 255 if over
-//{
-//	uint8_t buffer[size+2]; //array called buffer with size of (size + 2)
-//	uint16_t sum=0;
-//	buffer[0] = PID; // PID = 0th position in buffer
-//	for (int i=0; i<size; i++) // increment position and perform loop each time of adding data into buffer
-//	{
-//		buffer[i+1] = data[i]; //adds data slot i into the i+1 index
-//	}
-//
-//	for (int i=0; i<size+1; i++)
-//	{
-//		sum = sum + buffer[i]; // counts through the buffer increments
-//		if (sum>0xff) sum = sum-0xff; //ensures it doesnt reach over 255
-//	}
-//
-//	sum = 0xff-sum; //inverts result as per specification
-//	return sum;
-
-//}
 /* USER CODE END 0 */
 
 /**
@@ -225,35 +160,9 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  if (HAL_CAN_GetRxFifoFillLevel(&hcan, CAN_RX_FIFO0) != 0)
-	 {
-		 if (HAL_CAN_GetRxMessage(&hcan, CAN_RX_FIFO0, &RxHeader, RxDataCAN) == HAL_OK)
-		 {
-			 if (RxHeader.StdId == PDM_CONTROL_ID)
-				 HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
-		 }
-	 }
-	  CAN_SendTestFrame(); //self-tx every 100ms *added 10:44
-	  HAL_Delay(100);
-
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	  //LIN SHIT
-//	  TxData[0] = 0x55;   //assigns 0x55 (Sync Field) to
-//	  TxData[1] = pid_Calc(0x39
-//			  ); // send the ID (inside the function) at next position in buffer 57 is 0x39 is the frame ID in the LDF)
-//	  for (int i=0; i<8; i++)
-//	  {
-//		  TxData[i+2] = i;
-//	  }
-//	  TxData[10] = checksum_calc(TxData[1], TxData+2, 8); //LIN 2.1 Checksum (
-//
-//	  //Now we send the the forking LIN message
-//
-//	  HAL_LIN_SendBreak(&huart3);
-//	  HAL_UART_Transmit(&huart3, TxData, 11, 1000); //Explaination Below
-//	  HAL_Delay(1000); //wait a second between sending
   }
   /* USER CODE END 3 */
 }
@@ -326,9 +235,9 @@ static void MX_CAN_Init(void)
   hcan.Init.TimeSeg1 = CAN_BS1_2TQ;
   hcan.Init.TimeSeg2 = CAN_BS2_1TQ;
   hcan.Init.TimeTriggeredMode = DISABLE;
-  hcan.Init.AutoBusOff = ENABLE;
+  hcan.Init.AutoBusOff = DISABLE;
   hcan.Init.AutoWakeUp = DISABLE;
-  hcan.Init.AutoRetransmission = ENABLE;
+  hcan.Init.AutoRetransmission = DISABLE;
   hcan.Init.ReceiveFifoLocked = DISABLE;
   hcan.Init.TransmitFifoPriority = DISABLE;
   if (HAL_CAN_Init(&hcan) != HAL_OK)
@@ -504,34 +413,7 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-//CAN
 
-
-
-/*
-void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *h)
-{
-	uint8_t d[8];
-	if (HAL_CAN_GetRxMessage(h, CAN_RX_FIFO0, &RxHeader, d) == HAL_OK)
-	{
-		void adjust_fan(void);
-		//HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
-	}
-}
-
-*/
-/*
-void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *h)
-{
-    uint8_t d[8];
-    if (HAL_CAN_GetRxMessage(h, CAN_RX_FIFO0, &RxHeader, d) == HAL_OK)
-    {
-    	uint8_t duty_255 = d[3];
-    	uint8_t duty_for_adjust = (uint16_t)duty_255 * 200u / 255u;
-        adjust_fan(duty_for_adjust);
-    }
-}
-*/
 
 /* USER CODE END 4 */
 

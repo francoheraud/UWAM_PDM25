@@ -1,0 +1,6 @@
+../Core/Src/can_driver.c:4:13:can_init_handler	4	static
+../Core/Src/can_driver.c:6:19:can_init	16	static
+../Core/Src/can_driver.c:13:19:can_transmit	24	static
+../Core/Src/can_driver.c:22:13:can_error_handler	4	static
+../Core/Src/can_driver.c:23:13:can_receive_callback	4	static
+../Core/Src/can_driver.c:25:19:can_receive	16	static
