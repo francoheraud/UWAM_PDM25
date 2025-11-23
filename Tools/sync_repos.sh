@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # sync_repos.sh
-# Bash/POSIX script to commit and push to two remotes
+# Bash script to commit and push to two remotes
 
 set -e # Exit on error
 
@@ -13,14 +13,17 @@ cd "/home/fhn/Documents/Github/UWAM_PDM25/" || {
   exit 1
 }
 
-# Figure out current branch (e.g. main, dev)
+# Local branch (current branch)
 BRANCH="$(git rev-parse --abbrev-ref HEAD)"
-echo "Using branch: $BRANCH"
+echo "Using local branch: $BRANCH"
+
+# Remote branch for uwam (set this to what you saw from git ls-remote)
+UWAM_BRANCH="$BRANCH" # change to "master" or whatever if needed
 
 # Stage all changes
 git add -A
 
-# Only commit if there are changes (staged or unstaged)
+# Only commit if there are changes
 if [ -n "$(git status --porcelain)" ]; then
   echo "Committing changes..."
   git commit -m "$MESSAGE"
@@ -32,7 +35,16 @@ echo "Pushing to origin..."
 git push origin "$BRANCH"
 
 echo "Pushing to gitlab (uwam)..."
-git pull --rebase uwam "$BRANCH"
-git push uwam "$BRANCH"
+
+# Only pull --rebase if the branch exists on uwam
+if git ls-remote --exit-code --heads uwam "$UWAM_BRANCH" >/dev/null 2>&1; then
+  echo "Remote branch '$UWAM_BRANCH' exists on uwam, pulling with rebase..."
+  git pull --rebase uwam "$UWAM_BRANCH"
+else
+  echo "Remote branch '$UWAM_BRANCH' does not exist on uwam, skipping pull (will create on push)."
+fi
+
+# Push local branch to that branch name on uwam
+git push uwam "$BRANCH:$UWAM_BRANCH"
 
 git status
