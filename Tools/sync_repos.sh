@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # sync_repos.sh
-# Bash script to commit and push to two remotes
+# Bash/POSIX script to commit and push to two remotes
 
-set -e # Exit immediately on any *unexpected* command failure
+set -e # Exit on error
 
 # Commit message (default: "Auto commit")
 MESSAGE="${1:-Auto commit}"
@@ -13,30 +13,25 @@ cd "/home/fhn/Documents/Github/UWAM_PDM25/" || {
   exit 1
 }
 
-# Figure out the current branch (e.g. main, dev, etc.)
+# Figure out current branch (e.g. main, dev)
 BRANCH="$(git rev-parse --abbrev-ref HEAD)"
-
 echo "Using branch: $BRANCH"
 
-# Add all changes
+# Stage all changes
 git add -A
 
-# Only commit if there are actually changes
-if [[ -n "$(git status --porcelain)" ]]; then
+# Only commit if there are changes (staged or unstaged)
+if [ -n "$(git status --porcelain)" ]; then
   echo "Committing changes..."
   git commit -m "$MESSAGE"
 else
   echo "No changes to commit, skipping commit."
 fi
 
-# Push to first remote (e.g. GitHub)
 echo "Pushing to origin..."
-git fetch origin
 git push origin "$BRANCH"
 
-# Push to second remote (e.g. GitLab)
 echo "Pushing to gitlab (uwam)..."
-git fetch uwam
 git pull --rebase uwam "$BRANCH"
 git push uwam "$BRANCH"
 
