@@ -32,6 +32,6 @@ echo "Pushing to origin (GitHub)..."
 git push origin "$BRANCH"
 
 echo "Pushing to uwam (GitLab)..."
-git push uwam "$BRANCH"
+git push --force uwam master
 
 git status
