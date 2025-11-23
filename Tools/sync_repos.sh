@@ -17,6 +17,9 @@ cd "/home/fhn/Documents/Github/UWAM_PDM25/" || {
 BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 echo "Using local branch: $BRANCH"
 
+# Remote branch on UWAM (GitLab)
+UWAM_BRANCH="master"
+
 # Stage all changes
 git add -A
 
@@ -31,7 +34,7 @@ fi
 echo "Pushing to origin (GitHub)..."
 git push origin "$BRANCH"
 
-echo "Pushing to uwam (GitLab)..."
-git push --force uwam master
+echo "Pushing to uwam (GitLab master)..."
+git push uwam "$BRANCH:$UWAM_BRANCH"
 
 git status
