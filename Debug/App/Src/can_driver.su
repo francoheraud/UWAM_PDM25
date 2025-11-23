@@ -1,0 +1,3 @@
+../App/Src/can_driver.c:11:19:CAN_InitDriver	24	static
+../App/Src/can_driver.c:31:19:CAN_Transmit	24	static
+../App/Src/can_driver.c:41:19:CAN_Receive	16	static

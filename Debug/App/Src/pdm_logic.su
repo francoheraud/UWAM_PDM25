@@ -1,0 +1,8 @@
+../App/Src/pdm_logic.c:19:14:Constrain	24	static
+../App/Src/pdm_logic.c:29:19:PDM_Init	16	static
+../App/Src/pdm_logic.c:52:6:Poll_ADC_Conversions	16	static
+../App/Src/pdm_logic.c:62:6:PWM_Set_Fans	24	static
+../App/Src/pdm_logic.c:71:6:Store_Current_Readings	40	static
+../App/Src/pdm_logic.c:90:6:Store_Fuse_Status	24	static
+../App/Src/pdm_logic.c:97:13:Clear_Tx_Buffer	16	static
+../App/Src/pdm_logic.c:105:6:Transmit_All_Data	24	static
