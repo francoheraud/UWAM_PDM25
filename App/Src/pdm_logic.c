@@ -29,6 +29,7 @@ static float Constrain(float x, float low, float high) {
  */
 HAL_StatusTypeDef PDM_Init(PDM_t *pdm) {
 
+  uint32_t adc_ch2[6];
   // init can...
   CAN_InitDriver(&pdm->can, &hcan);
 
@@ -41,15 +42,18 @@ HAL_StatusTypeDef PDM_Init(PDM_t *pdm) {
 
   adc_ch3 = HAL_ADC_GetValue(&hadc3);
 
+  // fill raw adc code buffer
+  for (uint8_t i = 0; i < NUM_CURRENT_INPUTS - 2; i++) {
+    pdm->adc.code[i] = adc_ch2[i];
+  }
+  pdm->adc.code[5] = adc_ch3;
+  pdm->adc.code[6] = adc_ch2[5];
+
   // init struct variables...
   pdm->state.fuse = 0;
   pdm->state.mcu = false;
 
   return HAL_OK;
-}
-
-void Poll_ADC_Conversions(PDM_t *pdm) {
-  // ..
 }
 
 /**
@@ -74,7 +78,10 @@ void Store_Current_Readings(PDM_t *pdm) {
   const float r_shunt = 0.002; // ohms
 
   for (uint8_t i = 0; i < NUM_CURRENT_INPUTS; i++) {
+    // conv raw adc code to volts
     pdm->adc.volts[i] = 3.3f * (float)(pdm->adc.code / ADC_RES);
+
+    // current calc
     pdm->adc.volts[i] = Constrain(pdm->adc.volts[i], 0.0f, v_supply);
     pdm->adc.amps[i] = pdm->adc.volts[i] / (gain * r_shunt);
   }
